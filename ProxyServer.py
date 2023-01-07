@@ -25,7 +25,8 @@ import threading
 import time
 import re
 import os
-from os import path
+from os import path, makedirs
+import shutil
 
 # Global dictionary to store cached pages
 cache = {}
@@ -36,23 +37,45 @@ def get_time():
 
 # Function to check if a page is in the cache
 def is_cached(url):
-  return cache.get(url) != None
+  """ return cache.get(url) != None """
+  filepath, _ , _ = parse_url(url)
+  if(path.exists(filepath) and path.isfile(filepath)):
+    return True
+  else:
+    return False
 
 # Function to get the page from the cache
 def get_cached_page(url):
-  page = cache.get(url)
+  """ page = cache.get(url)
   if page:
     return page["data"], page["type"]
   else:
-    return None, None
+    return None, None """
+  if is_cached(url):
+    filepath, _ , _ = parse_url(url)
+    data = open(filepath, 'rb').read()
+    return data
+  else:
+    return None
 
 # Function to store a page in the cache
 def cache_page(url, data, content_type):
-  cache[url] = {
+  """ cache[url] = {
     "timestamp": get_time(),
     "data": data,
     "type": content_type
-  }
+  } """
+  filepath, filedir, _ = parse_url(url)
+  if(not path.exists(filedir) or not path.isdir(filedir)):
+    os.makedirs(filedir)
+  file = open(filepath, 'wb')
+  file.write(data)
+  file.close()
+
+# Function to clear the whole cache 
+def clear_cache():
+  if(path.exists('cache') and path.isdir('cache')):
+    shutil.rmtree('cache')
 
 # Function to send a GET request to a server
 def send_get_request(server, url):
@@ -133,7 +156,7 @@ def handle_client_request(conn, addr):
       conn.sendall(response)
       conn.close()
 
-# Function to initialize the proxy server
+# Function to initiate the proxy server
 def init_proxy_server():
   server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   host = socket.gethostname()
@@ -148,6 +171,41 @@ def init_proxy_server():
       print("\n------------------------------------------------------------")
       print(f"New connection from {client_address}")
       handle_client_request(client_socket,client_address)
+
+# Function to parse a request url
+def parse_url(url):
+  url = url.lower().removeprefix('http://')
+  sections = url.split('/')
+  filedir = path.join('cache', *sections[:-1])
+  filename = sections[-1]
+  if filename == '':
+    filename = 'index.html'
+  filepath = path.join(filedir, filename)
+  return filepath, filedir, filename
+
+
+def test():
+  url = "http://p3.ssl.qhimg.com/t01649b59bec74b0e1f"
+  data = b'data'
+  filepath, filedir, filename = parse_url(url)
+
+  if(is_cached(url)):
+    print('cached')
+    d = open(filepath, 'rb').read()
+    print(d)
+    #get_cached_page(url)
+  else:
+    print(f'>> Sent GET request to get page')
+    #response = send_get_request(server, url)
+    #status_code, status_word, headers, body = parse_response(response)
+    #if(status_code==200):
+        #cache_page(url, body, headers["content-type"])
+    if(not path.exists(filedir) or not path.isdir(filedir)):
+      makedirs(filedir)
+    open(filepath, 'wb').write(data)
+    print('>> Page cached successfully')
+
+
 
 
 if __name__ == "__main__":
